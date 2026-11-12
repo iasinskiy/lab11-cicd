@@ -1,0 +1,24 @@
+name: deploy
+
+on:
+  workflow_run:
+    workflows: ["ci"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: self-hosted
+    steps:
+      - name: Pull and run container
+        run: |
+          docker pull ghcr.io/${{ github.repository_owner }}/lab11-cicd:main
+          docker rm -f lab11-prod || true
+          docker run -d --name lab11-prod --restart unless-stopped -p 8012:8000 ghcr.io/${{ github.repository_owner }}/lab11-cicd:main
+
+      - name: Smoke test
+        run: |
+          sleep 3
+          curl -fsS http://host.docker.internal:8012/healthz
+          curl -fsS http://host.docker.internal:8012/version
